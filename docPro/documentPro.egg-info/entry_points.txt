@@ -1,3 +1,4 @@
 [console_scripts]
 docpro = utils:run
 docproapp = app:main
+

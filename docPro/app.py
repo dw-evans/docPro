@@ -1,5 +1,6 @@
 
 
+from tempfile import TemporaryFile
 import tkinter as tk
 from tkinter import filedialog
 
@@ -7,7 +8,8 @@ import utils
 import subprocess
 from pathlib import Path
 
-from pywintypes import com_error
+import win32gui
+
 
 LAST_MODIFIED = utils.VersionInfo.last_edited
 MODIFIED_BY = utils.VersionInfo.author
@@ -16,7 +18,7 @@ WINDOW_NAME = "documentPro.exe  ( •_•)>⌐■-■  >>  (⌐■_■)"
 
 
 def shortpath(path_string):
-    # returns shortened path string 
+    # returns shortened path string for filepath
     path_arr = path_string.split('\\')
     shortpath_arr = path_arr
     if len(path_arr) > 5:
@@ -41,55 +43,66 @@ def setLabelText(label_text, text):
 class Window:
     def __init__(self, root):
 
-        self.file_target =  ''
+        # target/output file paths (as strings)
+        # wd.Documents.Open() doesn't play nice with Path.__repr__
+        # hence you'll see Path.resolve.__str__()'s
+        self.file_target =  ''  # using '' instead of None for state checks
         self.file_output =  ''
 
+        # Target static label
         self.target_static_text = tk.StringVar()
         self.target_static_text.set("Target:")
         self.target_static_lbl = tk.Label(root, textvariable=self.target_static_text)
 
+        # output static label
         self.output_static_text = tk.StringVar()
         self.output_static_text.set("")
         self.output_static_lbl = tk.Label(root, textvariable=self.output_static_text)
 
+        # target dynamic label (file_target)
         self.target_dynamic_text = tk.StringVar()
         self.target_dynamic_text.set('')
+        self.target_dynamic_lbl = tk.Label(root, textvariable=self.target_dynamic_text)
 
+        # output dynamic label (file_output)
         self.output_dynamic_text = tk.StringVar()
         self.output_dynamic_text.set('')
+        self.output_dynamic_lbl = tk.Label(root, textvariable=self.output_dynamic_text)
 
+        # static version info footer
         self.version_info_text = tk.StringVar()
         self.version_info_text.set("Version {}. Last updated {} by {}".format(VERSION, LAST_MODIFIED, MODIFIED_BY))
         self.version_info_lbl = tk.Label(root, textvariable=self.version_info_text)
 
+        # import file button
         self.import_btn = tk.Button(root, text='Import File', command=self.getFileFromDialogue)
+        # set file_target using session active document button
         self.activeDocument_btn = tk.Button(root, text='Get Active Document', command=self.getFileFromActive)
-
-        self.target_dynamic_lbl = tk.Label(root, textvariable=self.target_dynamic_text)
-        self.output_dynamic_lbl = tk.Label(root, textvariable=self.output_dynamic_text)
-
+        # run (process file) button
         self.run_btn = tk.Button(root, text='Run', command=self.run, width=15)
 
-        
-
-        self.add_hyperlinks = True
+        # add hyperlinks checkbox
+        self.add_hyperlinks = True  # Who wouldn't want this on
         self.add_hyperlinks_val = tk.BooleanVar(value=self.add_hyperlinks)
         self.add_hyperlinks_btn = tk.Checkbutton(root, text="Add Hyperlinks", variable=self.add_hyperlinks_val, command=self.toggleAddHyperlinks) # not self.addHyperlinks)
 
+        # create copy (safe mode) checkbox
         self.create_copy = False
         self.create_copy_val = tk.BooleanVar(value=self.create_copy)
         self.create_copy_btn = tk.Checkbutton(root, text="SAFE MODE", variable=self.create_copy_val, command=self.toggleCreateCopy) # not self.addHyperlinks)
 
-        self.write_metadata = True
+        # write metadata checkbox
+        self.write_metadata = True  # maybe remove the choice lol
         self.write_metadata_val = tk.BooleanVar(value=self.write_metadata)
         self.write_metadata_btn = tk.Checkbutton(root, text="Write Metadata", variable=self.write_metadata_val, command=self.toggleWriteMeta) # not self.addHyperlinks)
 
-
+        # Opens explorer at the target file location, quite handy imo
         self.open_explorer_btn = tk.Button(root, text='Open File Explorer at Target', command=self.openExplorerAtTarget)
         self.open_target_word_btn = tk.Button(root, text='Open Target In Word', command=self.openTargetWord)
         
         self.updateLabels()
 
+        # object placement
         self.activeDocument_btn.place(x=10, y=10)
         self.import_btn.place(x=140, y=10)
 
@@ -127,7 +140,7 @@ class Window:
 
 
     def updateLabels(self):
-        # update dynamic labels
+        # updates non static labels
         if self.file_target == '':
             self.target_dynamic_text.set('Select a file')
         else:
@@ -143,6 +156,7 @@ class Window:
             self.output_static_text.set('')
             self.output_dynamic_text.set('')
 
+    # toggler functions for each checkbox, refreshes window
     def toggleAddHyperlinks(self):
         self.add_hyperlinks = self.add_hyperlinks_val.get()
         self.update()
@@ -155,28 +169,38 @@ class Window:
         self.write_metadata = self.write_metadata_val.get()
         self.update()
 
+
     def openTargetWord(self):
+        # open target file in word
+        # would be good to make this bring it to front
+
+        # a = Path(self.file_target).name
+        # search = a + ' - Word'
+        # print(search)
+        # hwnd = win32gui.FindWindow('', search)
+        # print(hwnd)
+
         try:
             utils.WD.Documents.Open(self.file_target)
-            utils.WD.Activate()
         except:
             wordErrorHandler()
-            self.openTargetWord()
+            # self.openTargetWord()
 
 
     def getFileFromActive(self):
+        # sets the active word doc to the target
         try:
             doc = utils.WD.ActiveDocument
             self.file_target = (Path(doc.Path) / doc.Name).resolve().__str__()
         except:
             wordErrorHandler()
 
-
         self.update()
 
 
     
     def run(self):
+        # processes the file, only if a file target is set.
         if self.file_target != '':
             utils.initialiseWord()
             print(self.file_target)
@@ -199,6 +223,7 @@ class Window:
 
 
     def getFileFromDialogue(self):
+        # sets the target file using a filedialog
         file_target = get_fopen()
         file_output = ''
         if file_target != '':
@@ -220,11 +245,13 @@ class Window:
         self.update()
 
 def wordErrorHandler():
+    # errors with things disconnecting, reinitialising seems to work
     print("Error interacting with the Word session, starting another...")
     utils.initialiseWord()
 
 
 def main():
+    # main func
     root = tk.Tk()
     win = Window(root)
     root.title(WINDOW_NAME)
