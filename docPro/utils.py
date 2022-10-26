@@ -6,8 +6,6 @@ Utility functions for documentPro appliaction and CLI
 
 """
 
-
-
 import win32com.client
 import json
 import os
@@ -16,18 +14,29 @@ from pathlib import Path
 
 
 class VersionInfo:
+    name = "documentPro"
     author = 'Daniel Evans'
-    last_edited = '19 Oct 2022'
-    version_number = '0.0.1'
+    last_edited = '26 Oct 2022'
+    version_number = '0.0.2'
 
 
-def writeTxt(text, fpath):
+class SearchObject:
+    # object to store search parameters and results
+    def __init__(self, prefix_list:list[str], regex_list:list[str], urlbase:str, addlinks:bool):
+        self.prefix_list = prefix_list
+        self.regex_list = regex_list
+        self.urlbase = urlbase
+        self.addlinks = addlinks
+        self.references: list = []
+
+
+def writeTxt(text, fpath) -> None:
     # writes str to fpath
     with open(fpath, 'w') as f:
         f.write(text)
 
 
-def initialiseWord(visible=True):
+def initialiseWord(visible=True) -> None:
     # Initialise Word, always visible so it doesn't need to be ended
     # via task manager if bug occurs
     global WD
@@ -37,57 +46,50 @@ def initialiseWord(visible=True):
     print("Word Initialised...")
 
 
+
 def initialiseDicts():
-    # initialises search dictionaries
-    global PREFIX_DICT, REGEX_DICT, URLBASE_DICT, ADDLINKS_DICT, REFERENCES_DICT
+    # initialises search objects dict
+    global SEARCH_OBJECTS
 
-    PREFIX_DICT = {}
-    PREFIX_DICT['hc_1'] = "UI,PMCF,PMSP,CDE,CEP,CER,CIA,CMD,DHF,DPM,ETH,FAI,FMA,HCP,ITA,ITI,ITF,ITO,KDN,MCR,MSD,MSP,PAC,PCB,PDP,PHA,PRR,PSW,PSX,PTM,PTX,PVD,QIC,REG,SOP,SUI,SYM,TMP,TRM,TRS,CI,CP,DD,DI,DP,DR,DS,ES,FI,FM,GD,HA,HR,IU,JI,KP,MF,MT,PF,PP,PV,QR,RR,SA,SP,SW,TB,TM,TP,TR,TS,US,BE,HHE,RAM".split(",")
-    PREFIX_DICT['hc_2'] = "LM,AS".split(",")
-    PREFIX_DICT['ecn'] =  "ECN,EPC".split(",")
-    PREFIX_DICT['dwg'] =  "DWG".split(",")
-
-    # Can add multiple search criteria to pick up bad formatting, e.g. DWG and DRW
-    REGEX_DICT = {}
-    REGEX_DICT['hc_1'] = ['[A-Z]{1,4}[-^~]([0-9]{1,14})>']
-    
-    REGEX_DICT['hc_2'] = [
-        'AS[-^~]([A-Z0-9]{1,14})>', 
-        'LM[-^~]([A-Z0-9]{1,14})>']
-
-    REGEX_DICT['ecn']  = [
-        'ECN[-^~]([0-9]{4,6})>', 
-        'ECN([0-9]{4,6})>', 
-        'EPC[-^~]([0-9]{4,6})>', 
-        'EPC([0-9]{4,6})>'] 
-
-    REGEX_DICT['dwg']  = [
-        'DWG[-^~][0-9]{1,14}',
-        'DRW[-^~][0-9]{1,14}']
-
-    # base strings for url databases
-    URLBASE_DICT = {}
-    URLBASE_DICT['hc_1'] =  "http://www-hcr:90/_intra_dr/hcdocs/released/{}.pdf"
-    URLBASE_DICT['hc_2'] =  URLBASE_DICT['hc_1']
-    URLBASE_DICT['ecn'] =   "https://search.fphcare.com/api/documents/ecn/{}.pdf"
-    URLBASE_DICT['dwg'] =   None  # should never be used with addlinks.dwg=false
-
-    # dict defining which types *can* be linked to, does not control
-    # global hyperlink yes/no behaviour
-    ADDLINKS_DICT = {}
-    ADDLINKS_DICT['hc_1'] = True
-    ADDLINKS_DICT['hc_2'] = ADDLINKS_DICT['hc_1']
-    ADDLINKS_DICT['ecn'] = ADDLINKS_DICT['hc_1']
-    ADDLINKS_DICT['dwg'] = False  # do not attempt to add links to dwg references
-
-    # where the document references are stored
-    REFERENCES_DICT = {}
-
-# initialise, are constant
-initialiseDicts()
+    SEARCH_OBJECTS = {}
+    SEARCH_OBJECTS['hc_1'] = SearchObject(
+        prefix_list= "UI,PMCF,PMSP,CDE,CEP,CER,CIA,CMD,DHF,DPM,ETH,FAI,FMA,HCP,ITA,ITI,ITF,ITO,KDN,MCR,MSD,MSP,PAC,PCB,PDP,PHA,PRR,PSW,PSX,PTM,PTX,PVD,QIC,REG,SOP,SUI,SYM,TMP,TRM,TRS,CI,CP,DD,DI,DP,DR,DS,ES,FI,FM,GD,HA,HR,IU,JI,KP,MF,MT,PF,PP,PV,QR,RR,SA,SP,SW,TB,TM,TP,TR,TS,US,BE,HHE,RAM".split(","),
+        regex_list=['[A-Z]{1,4}[-^~]([0-9]{1,14})>'],
+        urlbase="http://www-hcr:90/_intra_dr/hcdocs/released/{}.pdf",
+        addlinks=True
+    )
+    SEARCH_OBJECTS['hc_2'] = SearchObject(
+        prefix_list="LM,AS".split(","),
+        regex_list=[
+            'AS[-^~]([A-Z0-9]{1,14})>', 
+            'LM[-^~]([A-Z0-9]{1,14})>'
+        ],
+        urlbase=SEARCH_OBJECTS['hc_1'].urlbase,
+        addlinks=True
+    )
+    SEARCH_OBJECTS['ecn'] = SearchObject(
+        prefix_list="ECN,EPC".split(","),
+        regex_list=[
+            'ECN[-^~]([0-9]{4,6})>', 
+            'ECN([0-9]{4,6})>', 
+            'EPC[-^~]([0-9]{4,6})>', 
+            'EPC([0-9]{4,6})>'
+        ],
+        urlbase="https://search.fphcare.com/api/documents/ecn/{}.pdf",
+        addlinks=True
+    )
+    SEARCH_OBJECTS['dwg'] = SearchObject(
+        prefix_list="DWG".split(","),
+        regex_list=[
+            'DWG[-^~][0-9]{1,14}',
+            'DRW[-^~][0-9]{1,14}'
+        ],
+        urlbase='',
+        addlinks=False
+    )
 
 
-def initialiseMetaFolder():
+def initialiseMetaFolder() -> str:
     # creates a /meta directory to write metadata to
     # if it isn't created.
     dir_target = DOC.Path
@@ -97,7 +99,7 @@ def initialiseMetaFolder():
     return dir_metadata
 
 
-def getMetaData():
+def getMetaData() -> dict:
     # gathers metadata for json export
     runtime_dict = {}
     tmp1 = datetime.datetime.now()
@@ -114,6 +116,7 @@ def getMetaData():
     wd_file_properties_dict['saved_when'] = {
         "date": '{}-{}-{}'.format(tmp1.year, tmp1.month, tmp1.day),
         "time": '{}:{}:{}'.format(tmp1.hour, tmp1.minute, tmp1.second),
+
         }
     wd_file_properties_dict['saved_by'] = tmp[6].Value
     wd_file_properties_dict['title'] = tmp[0].Value
@@ -125,16 +128,24 @@ def getMetaData():
     metadata_dict = {}
     metadata_dict['runtime_dict'] = runtime_dict
     metadata_dict['wd_file_properties_dict'] = wd_file_properties_dict
-    metadata_dict['reference_list_dict'] = REFERENCES_DICT
+    # metadata_dict['reference_list_dict'] = REFERENCES_DICT
+
+    search_objects_dict = {}
+    for key in SEARCH_OBJECTS:
+        search_objects_dict[key] = SEARCH_OBJECTS[key].__dict__
+
+    metadata_dict['search_objects'] = search_objects_dict
 
     return metadata_dict
 
 
-def getReferencesAsList():
+def getReferencesAsList() -> list[str]:
     # generates list of references for txt file export
     reference_list = []
-    for key in REFERENCES_DICT:
-        for string in REFERENCES_DICT[key]:
+    # for key in REFERENCES_DICT:
+    #     for string in REFERENCES_DICT[key]:
+    for key in SEARCH_OBJECTS:
+        for string in SEARCH_OBJECTS[key].references:
             reference_list.append(string)
             print(string)
     return reference_list
@@ -144,13 +155,15 @@ def referenceType(chars):
     # takes input of chars and attempts to match chars to items in keys of prefix_list_dict
     # returns key if successful or None if not found
     refType = None
-    for key in PREFIX_DICT:
-        if chars in PREFIX_DICT[key]:
+    # for key in PREFIX_DICT:
+        # if chars in PREFIX_DICT[key]:
+    for key in SEARCH_OBJECTS:
+        if chars in SEARCH_OBJECTS[key].prefix_list:
             refType = key
     return refType
 
 
-def processFile(wdDocument, addHyperlinks=True):
+def processFile(wdDocument, addHyperlinks=True) -> None:
     """
     Main processor function. Defines the global DOC variable which is used
     in other functions.
@@ -159,20 +172,21 @@ def processFile(wdDocument, addHyperlinks=True):
     global DOC
 
     DOC = wdDocument
-    doc = DOC
 
     NB_HYPH = '\x1e'  # this is word's representation of a nonbreaking hyphen
 
     # complete a regex search for each search type (dict keys)
-    search_type_list = [key for key in REGEX_DICT]
-    for search_type in search_type_list:
+    # search_type_list = [key for key in REGEX_DICT]
+    for search_type in SEARCH_OBJECTS:
+    # for search_type in search_type_list:
         reference_list = []  # initialise ref list for metadata write
         print("Searching for: {}".format(search_type))
 
 
-        for search_str in REGEX_DICT[search_type]:
+        # for search_str in REGEX_DICT[search_type]:
+        for search_str in SEARCH_OBJECTS[search_type].regex_list:
             print("Searching for: {1} within {0}".format(search_type, search_str))
-            rng = doc.Range()  # document range (all text content in body)
+            rng = DOC.Range()  # document range (all text content in body)
             # Setup the find method variables
             rng.Find.Text = search_str  # look for this string
             rng.Find.MatchWildcards = True  # for regex to work
@@ -210,16 +224,19 @@ def processFile(wdDocument, addHyperlinks=True):
                     str_pre = 'DWG'  # set dwg prefix to always be 'DWG'
                     
                 # Check validity of prefix
-                isValid = str_pre in PREFIX_DICT[search_type]
+                # isValid = str_pre in PREFIX_DICT[search_type]
+                isValid = str_pre in SEARCH_OBJECTS[search_type].prefix_list
 
                 if isValid:
                     
                     reference_list.append(str_db)
                     # if the user wants to add hyperlinks, and if the link can be made
-                    if addHyperlinks and ADDLINKS_DICT[search_type]:
-                        url_address = URLBASE_DICT[search_type].format(str_url)
+                    # if addHyperlinks and ADDLINKS_DICT[search_type]:
+                    if addHyperlinks and SEARCH_OBJECTS[search_type].addlinks:
+                        # url_address = URLBASE_DICT[search_type].format(str_url)
+                        url_address = SEARCH_OBJECTS[search_type].urlbase.format(str_url)
                         # adds hyperlink, preserves original rng.Text
-                        doc.Hyperlinks.Add(Anchor=rng, Address=url_address, 
+                        DOC.Hyperlinks.Add(Anchor=rng, Address=url_address, 
                                 ScreenTip="", TextToDisplay=rng.Text)
 
                 # collapse the range to the end of the word
@@ -231,16 +248,17 @@ def processFile(wdDocument, addHyperlinks=True):
             reference_list.sort() 
 
             # write the reference list to the global results dict
-            REFERENCES_DICT[search_type] = reference_list
+            # REFERENCES_DICT[search_type] = reference_list
+            SEARCH_OBJECTS[search_type].references = reference_list
 
 
-def setDOC(document):
+def setDOC(document) -> None:
     # function to set DOC without needing a global DOC declaration
     global DOC
     DOC = document
 
 
-def writeMetaData():
+def writeMetaData() -> None:
     # gets and writes meta data to metadata folder as json, txt
 
     print("Fetching Metadata...")
@@ -260,7 +278,17 @@ def writeMetaData():
     writeTxt(references_json, (Path(dir_metadata) / "meta.json"))
 
 
-def run():
+def isDocumentOpen(pathstr: str) -> tuple:
+
+    doc_name = Path(pathstr).name
+    doc_list = [(i, WD.Documents(i).Name) for i in range(1, WD.Documents.Count+1)]
+    for tup in doc_list:
+        if tup[1].lower() == doc_name.lower():
+            return True, tup[0]
+    return False, 0
+
+
+def run() -> None:
     # commandline interface run command
     initialiseWord()
     print("\nActivate your target document.")
@@ -277,6 +305,8 @@ def run():
     processFile(DOC, addHyperlinks=True)
     writeMetaData()
 
+# initialise constants
+initialiseDicts()
 
 if __name__ == '__main__':
     run()

@@ -1,6 +1,5 @@
 
 
-from tempfile import TemporaryFile
 import tkinter as tk
 from tkinter import filedialog
 
@@ -8,21 +7,22 @@ import utils
 import subprocess
 from pathlib import Path
 
-import win32gui
-
 
 LAST_MODIFIED = utils.VersionInfo.last_edited
-MODIFIED_BY = utils.VersionInfo.author
+MODIFIED_BY = '' #utils.VersionInfo.author
 VERSION = utils.VersionInfo.version_number
-WINDOW_NAME = "documentPro.exe  ( •_•)>⌐■-■  >>  (⌐■_■)"
+WINDOW_NAME = "documentPro.exe ( •_•)>⌐■-■"
 
 
 def shortpath(path_string):
-    # returns shortened path string for filepath
-    path_arr = path_string.split('\\')
+
+    # hack to tidy up Q drive link
+    path_string = path_string.replace("\\\\NZ-FS1\\qualityshare\\", 'Q:\\')
+
+    path_arr = path_string.split("\\")
     shortpath_arr = path_arr
-    if len(path_arr) > 5:
-        shortpath_arr = [path_arr[i] for i in (0,1,0,-3,-2,-1)]
+    if len(path_arr) > 4:
+        shortpath_arr = [path_arr[i] for i in (0,1,0,-2,-1)]
         shortpath_arr[2] = '...'
     shortpath = '\\'.join(shortpath_arr)
     return shortpath
@@ -71,7 +71,9 @@ class Window:
 
         # static version info footer
         self.version_info_text = tk.StringVar()
-        self.version_info_text.set("Version {}. Last updated {} by {}".format(VERSION, LAST_MODIFIED, MODIFIED_BY))
+        # self.version_info_text.set("(⌐■_■) Version {}. Last updated {} by {}".format(VERSION, LAST_MODIFIED, MODIFIED_BY))
+        self.version_info_text.set("(⌐■_■) Version {}. {}".format(VERSION, LAST_MODIFIED))
+
         self.version_info_lbl = tk.Label(root, textvariable=self.version_info_text)
 
         # import file button
@@ -145,10 +147,12 @@ class Window:
             self.target_dynamic_text.set('Select a file')
         else:
             self.target_dynamic_text.set('{}'.format(shortpath(self.file_target)))
+            print(shortpath(self.file_target))
         if self.create_copy:
             self.output_static_text.set('Output:')
             if self.file_output != "":
                 self.output_dynamic_text.set('{}'.format(shortpath(self.file_output)))
+                print(shortpath(self.file_output))
             else:
                 self.output_dynamic_text.set('')
 
@@ -205,15 +209,20 @@ class Window:
             utils.initialiseWord()
             print(self.file_target)
             print(self.file_output)
-            if not self.create_copy:
+
+            # need to check if the document is open first, returns true and nonzero idx if already open
+            is_open, idx = utils.isDocumentOpen(self.file_target)
+            if not is_open:
                 utils.WD.Documents.Open(self.file_target)
+            else:
+                utils.WD.Documents(idx).Activate()
+            
+            # create_copy handling, either change file or open (and activate) new one
+            if not self.create_copy:
                 utils.processFile(utils.WD.ActiveDocument, addHyperlinks=self.add_hyperlinks)
             else:
-                utils.WD.Documents.Open(self.file_target, ReadOnly=True)
                 utils.WD.ActiveDocument.SaveAs2(self.file_output)
-                utils.processFile(utils.WD.ActiveDocument, addHyperlinks=self.add_hyperlinks)
-                # utils.WD.Documents.Open(self.file_target)
-                # utils.WD.Documents.Open(self.file_output)
+                utils.processFile(utils.DOC, addHyperlinks=self.add_hyperlinks)
             
             if self.write_metadata:
                 utils.writeMetaData()

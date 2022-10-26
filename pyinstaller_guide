@@ -1,0 +1,3 @@
+Run the following command (requires pyinstall module (installed via pip, for example))
+
+pyinstaller --clean --onefile --name "docPro" --hiddenimport win32timezone -F "docPro/app.py"
